@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './Utils/supabaseClient.js';
 import Auth from './Auth.js';
 import CSVUpload from './CSVUpload';
-import TransactionsPage from './Pages/TransactionsPage'; // Import the TransactionsPage component
+import TransactionsPage from './Pages/TransactionsPage';
+import Visualizations from './Components/Visualizations';
 
 function App() {
   const [session, setSession] = useState(null);
-  const [currentPage, setCurrentPage] = useState('csv'); // Add state for current page
+  const [currentPage, setCurrentPage] = useState('csv');
+  const [transactions, setTransactions] = useState([]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -16,7 +18,24 @@ function App() {
     supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
+
+    // Fetch transactions when the component mounts
+    fetchTransactions();
   }, []);
+
+  const fetchTransactions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*');
+      
+      if (error) throw error;
+      
+      setTransactions(data || []);
+    } catch (error) {
+      console.error('Error fetching transactions:', error.message);
+    }
+  };
 
   const renderPage = () => {
     if (!session) {
@@ -26,7 +45,9 @@ function App() {
       case 'csv':
         return <CSVUpload />;
       case 'transactions':
-        return <TransactionsPage />;
+        return <TransactionsPage transactions={transactions} />;
+      case 'visualizations':
+        return <Visualizations transactions={transactions} />;
       default:
         return <CSVUpload />;
     }
@@ -39,6 +60,7 @@ function App() {
         <nav>
           <button onClick={() => setCurrentPage('csv')}>CSV Upload</button>
           <button onClick={() => setCurrentPage('transactions')}>Transactions</button>
+          <button onClick={() => setCurrentPage('visualizations')}>Visualizations</button>
         </nav>
       )}
       {renderPage()}
