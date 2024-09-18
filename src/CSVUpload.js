@@ -1,7 +1,7 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import Papa from 'papaparse';
-import { supabase } from './supabaseClient';
+import { supabase } from './Utils/supabaseClient';
 
 const CSVUpload = () => {
   const [parsedData, setParsedData] = useState([]);
@@ -22,11 +22,11 @@ const CSVUpload = () => {
 
   const onDrop = useCallback((acceptedFiles) => {
     if (!isAuthenticated) {
-        setUploadStatus("Please sign in to upload data.");
-        return;
-      }
+      setUploadStatus("Please sign in to upload data.");
+      return;
+    }
   
-      const file = acceptedFiles[0];
+    const file = acceptedFiles[0];
     
     Papa.parse(file, {
       complete: async (results) => {
@@ -52,10 +52,26 @@ const CSVUpload = () => {
             .from('transactions')
             .insert(transformedData);
           
-          if (error) throw error;
+          if (error) {
+            console.error('Error details:', error);
+            throw error;
+          }
           
           console.log('Inserted data:', data);
           setUploadStatus('Upload successful!');
+          
+          // Verify the insertion by fetching the data
+          const { data: verificationData, error: verificationError } = await supabase
+            .from('transactions')
+            .select('*')
+            .order('transaction_date', { ascending: false })
+            .limit(5);
+          
+          if (verificationError) {
+            console.error('Verification error:', verificationError);
+          } else {
+            console.log('Verification data (last 5 entries):', verificationData);
+          }
         } catch (error) {
           console.error('Error details:', error);
           setUploadStatus(`Upload failed: ${error.message || 'Unknown error'}`);
