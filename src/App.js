@@ -37,6 +37,16 @@ function App() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      setSession(null);
+    } catch (error) {
+      console.error('Error logging out:', error.message);
+    }
+  };
+
   const renderPage = () => {
     if (!session) {
       return <Auth />;
@@ -61,6 +71,7 @@ function App() {
           <button onClick={() => setCurrentPage('csv')}>CSV Upload</button>
           <button onClick={() => setCurrentPage('transactions')}>Transactions</button>
           <button onClick={() => setCurrentPage('visualizations')}>Visualizations</button>
+          <button onClick={handleLogout}>Logout</button>
         </nav>
       )}
       {renderPage()}
