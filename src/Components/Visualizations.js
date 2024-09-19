@@ -9,7 +9,7 @@ import {
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
-const INITIAL_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
+const INITIAL_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#00E396','#775DD0','#000000', '#F1C40F', ];
 
 const Visualizations = ({ transactions }) => {
   const [startDate, setStartDate] = useState(new Date(new Date().setMonth(new Date().getMonth() - 1)));
