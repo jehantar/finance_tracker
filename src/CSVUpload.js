@@ -20,6 +20,51 @@ const CSVUpload = () => {
     checkAuth();
   }, []);
 
+  const columnMappings = {
+    'Transaction Date': 'transaction_date',
+    'Post Date': 'post_date',
+    'Description': 'description',
+    'Category': 'category',
+    'Type': 'type',
+    'Amount': 'amount',
+    'Memo': 'memo'
+  };
+
+  const noHeadersColumnOrder = [
+    'transaction_date',
+    'amount',
+    'type',
+    'category',
+    'description'
+  ];
+
+  const transformRow = (row, hasHeaders) => {
+    const transformedRow = {};
+    if (hasHeaders) {
+      Object.keys(row).forEach(key => {
+        const mappedKey = columnMappings[key] || key.toLowerCase().replace(/\s+/g, '_');
+        let value = row[key];
+        if (mappedKey === 'transaction_date' || mappedKey === 'post_date') {
+          value = new Date(value).toISOString();
+        } else if (mappedKey === 'amount') {
+          value = parseFloat(value.replace(/[^\d.-]/g, ''));
+        }
+        transformedRow[mappedKey] = value;
+      });
+    } else {
+      noHeadersColumnOrder.forEach((key, index) => {
+        let value = row[index];
+        if (key === 'transaction_date') {
+          value = new Date(value).toISOString();
+        } else if (key === 'amount') {
+          value = parseFloat(value.replace(/[^\d.-]/g, ''));
+        }
+        transformedRow[key] = value;
+      });
+    }
+    return transformedRow;
+  };
+
   const onDrop = useCallback((acceptedFiles) => {
     if (!isAuthenticated) {
       setUploadStatus("Please sign in to upload data.");
@@ -31,33 +76,33 @@ const CSVUpload = () => {
     Papa.parse(file, {
       complete: async (results) => {
         console.log('Parsed CSV data:', results.data);
-        setParsedData(results.data);
+        
+        const hasHeaders = results.meta.fields && results.meta.fields.length > 0;
+        const dataToProcess = hasHeaders ? results.data : results.data;
+        
+        setParsedData(dataToProcess);
         
         try {
-          const transformedData = results.data.map(row => ({
-            transaction_date: new Date(row['Transaction Date']).toISOString(),
-            post_date: new Date(row['Post Date']).toISOString(),
-            description: row['Description'],
-            category: row['Category'],
-            type: row['Type'],
-            amount: parseFloat(row['Amount']),
-            memo: row['Memo']
-          }));
+          const transformedData = dataToProcess.map(row => transformRow(row, hasHeaders));
 
           console.log('Transformed data:', transformedData);
           console.log('Supabase URL:', supabase.supabaseUrl);
           console.log('Is authenticated:', isAuthenticated);
 
-          const { data, error } = await supabase
-            .from('transactions')
-            .insert(transformedData);
-          
-          if (error) {
-            console.error('Error details:', error);
-            throw error;
+          // Insert data in smaller batches
+          const batchSize = 100;
+          for (let i = 0; i < transformedData.length; i += batchSize) {
+            const batch = transformedData.slice(i, i + batchSize);
+            const { data, error } = await supabase
+              .from('transactions')
+              .insert(batch);
+            
+            if (error) {
+              console.error('Error details:', error);
+              throw error;
+            }
           }
           
-          console.log('Inserted data:', data);
           setUploadStatus('Upload successful!');
           
           // Verify the insertion by fetching the data
@@ -77,7 +122,7 @@ const CSVUpload = () => {
           setUploadStatus(`Upload failed: ${error.message || 'Unknown error'}`);
         }
       },
-      header: true,
+      header: false,
       skipEmptyLines: true
     });
   }, [isAuthenticated]);
@@ -101,7 +146,7 @@ const CSVUpload = () => {
           <table>
             <thead>
               <tr>
-                {Object.keys(parsedData[0]).map((header) => (
+                {(parsedData[0] instanceof Array ? noHeadersColumnOrder : Object.keys(parsedData[0])).map((header) => (
                   <th key={header}>{header}</th>
                 ))}
               </tr>
@@ -109,7 +154,7 @@ const CSVUpload = () => {
             <tbody>
               {parsedData.slice(0, 5).map((row, index) => (
                 <tr key={index}>
-                  {Object.values(row).map((cell, cellIndex) => (
+                  {(row instanceof Array ? row : Object.values(row)).map((cell, cellIndex) => (
                     <td key={cellIndex}>{cell}</td>
                   ))}
                 </tr>
